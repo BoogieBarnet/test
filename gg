@@ -16,19 +16,12 @@ def log_connection(port, client_address):
 def handle_client(client_socket, client_address, port):
     """Handles interaction with a client."""
     try:
-        # Log the connection (without sending verbose responses)
+        # Log the connection
         log_connection(port, client_address)
-        
-        # Optionally, send minimal or protocol-specific responses
-        data = client_socket.recv(1024)
-        if b"HELO" in data or b"EHLO" in data:
-            response = "250 Hello\r\n"
-            client_socket.send(response.encode('utf-8'))
-        elif b"GET" in data:
-            response = "HTTP/1.1 200 OK\r\n"
-            client_socket.send(response.encode('utf-8'))
-        # No response for unrecognized probes
-        pass
+
+        # Respond with a single honeypot message
+        response = "You've reached a honeypot on port {0}!\n".format(port)
+        client_socket.send(response.encode('utf-8'))
     except Exception as e:
         logging.error("Error handling client on port {0}: {1}".format(port, e))
     finally:

@@ -12,22 +12,22 @@ logging.basicConfig(
 def log_connection(port, client_address, data=None):
     """Logs the connection details."""
     if data:
-        logging.info(f"Connection on port {port} from {client_address} - Data: {data}")
+        logging.info("Connection on port {0} from {1} - Data: {2}".format(port, client_address, data))
     else:
-        logging.info(f"Connection on port {port} from {client_address}")
+        logging.info("Connection on port {0} from {1}".format(port, client_address))
 
 def handle_client(client_socket, port):
     """Handles interaction with a client."""
     try:
         # Simulate a response for the honeypot service
-        response = f"You've reached a honeypot on port {port}!"
-        client_socket.send(response.encode())
+        response = "You've reached a honeypot on port {0}!".format(port)
+        client_socket.send(response)
         # Log received data (if any)
-        data = client_socket.recv(1024).decode()
+        data = client_socket.recv(1024)
         if data:
             log_connection(port, client_socket.getpeername(), data)
     except Exception as e:
-        logging.error(f"Error handling client on port {port}: {e}")
+        logging.error("Error handling client on port {0}: {1}".format(port, e))
     finally:
         client_socket.close()
 
@@ -37,15 +37,15 @@ def start_honeypot(port):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(('0.0.0.0', port))
         server_socket.listen(5)
-        print(f"Honeypot listening on port {port}")
+        print("Honeypot listening on port {0}".format(port))
 
         while True:
             client_socket, client_address = server_socket.accept()
-            print(f"Connection on port {port} from {client_address}")
+            print("Connection on port {0} from {1}".format(port, client_address))
             log_connection(port, client_address)
             Thread(target=handle_client, args=(client_socket, port)).start()
     except Exception as e:
-        logging.error(f"Error starting honeypot on port {port}: {e}")
+        logging.error("Error starting honeypot on port {0}: {1}".format(port, e))
     finally:
         server_socket.close()
 

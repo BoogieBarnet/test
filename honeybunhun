@@ -19,21 +19,11 @@ def log_connection(port, client_address, data=None):
 def handle_client(client_socket, client_address, port):
     """Handles interaction with a client."""
     try:
-        # Log the connection
-        log_connection(port, client_address)
-
-        # Simulate a response for the honeypot service
-        response = "You've reached a honeypot on port {0}!".format(port)
+        response = "Welcome to Honeypot - Port {0}".format(port)
         client_socket.send(response.encode('utf-8'))
-
-        # Log received data (if any)
-        data = client_socket.recv(1024)
-        if data:
-            log_connection(port, client_address, data=data)
-    except Exception as e:
-        logging.error("Error handling client on port {0}: {1}".format(port, e))
     finally:
         client_socket.close()
+
 
 def start_honeypot(port):
     """Starts a honeypot on the specified port."""

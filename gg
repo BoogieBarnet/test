@@ -1,0 +1,64 @@
+import socket
+import logging
+from threading import Thread
+
+# Configure logging
+logging.basicConfig(
+    filename='honeypot.log', 
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+def log_connection(port, client_address):
+    """Logs the connection details."""
+    logging.info("Connection on port {0} from {1}".format(port, client_address))
+
+def handle_client(client_socket, client_address, port):
+    """Handles interaction with a client."""
+    try:
+        # Log the connection (without sending verbose responses)
+        log_connection(port, client_address)
+        
+        # Optionally, send minimal or protocol-specific responses
+        data = client_socket.recv(1024)
+        if b"HELO" in data or b"EHLO" in data:
+            response = "250 Hello\r\n"
+            client_socket.send(response.encode('utf-8'))
+        elif b"GET" in data:
+            response = "HTTP/1.1 200 OK\r\n"
+            client_socket.send(response.encode('utf-8'))
+        # No response for unrecognized probes
+        pass
+    except Exception as e:
+        logging.error("Error handling client on port {0}: {1}".format(port, e))
+    finally:
+        client_socket.close()
+
+def start_honeypot(port):
+    """Starts a honeypot on the specified port."""
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind(('0.0.0.0', port))
+        server_socket.listen(5)
+        logging.info("Honeypot listening on port {0}".format(port))
+
+        while True:
+            client_socket, client_address = server_socket.accept()
+            Thread(target=handle_client, args=(client_socket, client_address, port)).start()
+    except Exception as e:
+        logging.error("Error starting honeypot on port {0}: {1}".format(port, e))
+    finally:
+        server_socket.close()
+
+if __name__ == "__main__":
+    # Define the ports to listen on (Top 30 ports)
+    ports = [
+        21, 22, 23, 25, 53, 80, 110, 139, 143, 443,
+        445, 993, 995, 1080, 1433, 3306, 3389, 5900, 8080, 8443,
+        1025, 1723, 3128, 5060, 5432, 5901, 6667, 8000, 10000, 20000
+    ]
+
+    # Start a thread for each port
+    for port in ports:
+        Thread(target=start_honeypot, args=(port,)).start()

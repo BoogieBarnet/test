@@ -1,0 +1,84 @@
+import socket
+import logging
+from threading import Thread
+import boto3
+import uuid
+from datetime import datetime
+
+# Configure logging
+logging.basicConfig(
+    filename='honeypot.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+# Initialize DynamoDB
+dynamodb = boto3.resource('dynamodb')
+table_name = 'HoneypotConnections'  # Replace with your table name
+table = dynamodb.Table(table_name)
+
+def log_to_dynamodb(port, client_address, data=None):
+    """Logs connection details to DynamoDB."""
+    try:
+        item = {
+            'id': str(uuid.uuid4()),  # Unique identifier for each entry
+            'timestamp': datetime.utcnow().isoformat(),  # Current timestamp
+            'port': port,
+            'client_address': client_address[0],  # Extract IP address
+            'data': data or "No data received"  # Default to "No data" if none provided
+        }
+        table.put_item(Item=item)
+        logging.info("Logged connection to DynamoDB: {0}".format(item))
+    except Exception as e:
+        logging.error("Failed to log to DynamoDB: {0}".format(e))
+
+def log_connection(port, client_address, data=None):
+    """Logs the connection details."""
+    if data:
+        logging.info("Connection on port {0} from {1} - Data: {2}".format(port, client_address, data))
+    else:
+        logging.info("Connection on port {0} from {1}".format(port, client_address))
+
+    # Log to DynamoDB
+    log_to_dynamodb(port, client_address, data)
+
+def handle_client(client_socket, client_address, port):
+    """Handles interaction with a client."""
+    try:
+        data = client_socket.recv(1024).decode('utf-8').strip()  # Receive data from client
+        log_connection(port, client_address, data)
+        response = "Welcome to Honeypot - Port {0}".format(port)
+        client_socket.send(response.encode('utf-8'))
+    except Exception as e:
+        logging.error("Error handling client: {0}".format(e))
+    finally:
+        client_socket.close()
+
+def start_honeypot(port):
+    """Starts a honeypot on the specified port."""
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind(('0.0.0.0', port))
+        server_socket.listen(5)
+        logging.info("Honeypot listening on port {0}".format(port))
+
+        while True:
+            client_socket, client_address = server_socket.accept()
+            Thread(target=handle_client, args=(client_socket, client_address, port)).start()
+    except Exception as e:
+        logging.error("Error starting honeypot on port {0}: {1}".format(port, e))
+    finally:
+        server_socket.close()
+
+if __name__ == "__main__":
+    # Top 30 commonly used/scanned ports
+    ports = [
+        21, 22, 23, 25, 53, 80, 110, 139, 143, 443,
+        445, 993, 995, 1080, 1433, 3306, 3389, 5900, 8080, 8443,
+        1025, 1723, 3128, 5060, 5432, 5901, 6667, 8000, 10000, 20000
+    ]
+
+    # Start a thread for each port
+    for port in ports:
+        Thread(target=start_honeypot, args=(port,)).start()
